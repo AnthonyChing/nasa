@@ -1,5 +1,5 @@
 #!/bin/bash
-OPTIONS="i:o"
+OPTIONS=""
 LONGOPTIONS="input:,output:"
 PARSED="$(getopt -l "$LONGOPTIONS" -o "$OPTIONS" -- "$@")"
 if [[ $? -ne 0 ]]; then
