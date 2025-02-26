@@ -1,0 +1,6 @@
+#!/bin/bash
+var0="test.txt"
+var1='<div><include src="test.txt" /></div>'
+var2="efgh"
+var3="$(echo $var1 | sed "s/<include src=\"$var0\" \/>/$var2/g")"
+echo $var3
