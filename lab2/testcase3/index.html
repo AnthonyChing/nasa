@@ -1,0 +1,11 @@
+<head>
+	<title> Test case 3 </title>
+</head>
+<body>
+	<div><include src="test3.txt" /></div><div><include src="test3.html" /></div>
+	<h1>Hello World!</h1>
+	<div><div><include src="nonexist" /></div></div>
+	<div><div><include src="garbage_with_symbols!%^#$(@#)" /></div></div>
+	<include src="garbage_with_fake_ending_tag />" />
+	<include src="garbage_with_fake_starting_tag<include src=" />
+</body>

@@ -37,27 +37,39 @@ while true; do
   	esac
 done
 
+outer_regex='<include src="([^"]+)" \/>'
 regex='<include src="([a-zA-Z0-9_/\.]+(\.[a-zA-Z0-9_]+)?)" \/>'
 
 parse() {
 	export -f parse
 	local file=$1
     while IFS= read -r line; do
-        while [[ $line =~ $regex ]]; do
+		# echo "from file: $file: $line" >&2
+		if [[ $line =~ $outer_regex ]]; then
 			front=${line%%"<include src=\"${BASH_REMATCH[1]}"*}
 			back=${line##*"${BASH_REMATCH[1]}\" />"}
-            filepath="${file%/*}/""${BASH_REMATCH[1]}"
+			filepath="${file%/*}/""${BASH_REMATCH[1]}"
 			if [[ -r "$filepath" ]]; then
-				filetype=${BASH_REMATCH[1]##*.}
-				if [[ $filetype == "png" || $filetype == "jpg" ]]; then
-					line="$front"'<img src="data:image/'"$filetype"';base64,'"$(base64 -w 0 ${filepath})"'" />'"$back"
-				else
-					line="$front""$(parse < $filepath $filepath)""$back"
-				fi
+				while [[ $line =~ $regex ]]; do
+					front=${line%%"<include src=\"${BASH_REMATCH[1]}"*}
+					back=${line##*"${BASH_REMATCH[1]}\" />"}
+					filepath="${file%/*}/""${BASH_REMATCH[1]}"
+					if [[ -r "$filepath" ]]; then
+						filetype=${BASH_REMATCH[1]##*.}
+						if [[ $filetype == "png" || $filetype == "jpg" ]]; then
+							line="$front"'<img src="data:image/'"$filetype"';base64,'"$(base64 -w 0 ${filepath})"'" />'"$back"
+						else
+							# echo "entering $filepath" >&2
+							line="$front""$(parse < $filepath $filepath)""$back"
+						fi
+					else
+						line="$front"'<p style="color:red;">Cannot access '"${BASH_REMATCH[1]}"'</p>'"$back"
+					fi
+				done
 			else
 				line="$front"'<p style="color:red;">Cannot access '"${BASH_REMATCH[1]}"'</p>'"$back"
 			fi
-        done
+		fi
         echo "$line"
     done < $file
 }
