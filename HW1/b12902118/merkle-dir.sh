@@ -174,7 +174,7 @@ gen-proof2(){
 	while IFS= read -r line; do
 		if [[ $line ]]; then
 			n=$(($n+1))
-			if [[ "$line" =~ "$path_to_leaf_file" ]]; then
+			if [[ "$line" == "$path_to_leaf_file" ]]; then
 				# echo "$path_to_leaf_file found in line $n">&2
 				leaf_index=$n
 			fi
@@ -219,9 +219,9 @@ gen-proof1(){
 	while IFS= read -r line; do
 		if [[ $line ]]; then
 			n=$(($n+1))
-			if [[ "$line" =~ "$path_to_leaf_file" ]]; then
+			if [[ "$line" = "$path_to_leaf_file" ]]; then
 				# echo "$path_to_leaf_file found in line $n">&2
-				leaf_index=$n
+				# leaf_index=$n
 				found="true"
 			fi
 		else
