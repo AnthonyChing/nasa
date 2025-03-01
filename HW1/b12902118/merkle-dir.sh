@@ -78,9 +78,7 @@ while true; do
 done
 
 build(){
-	dirParsed=$(echo $directory | sed 's/\//\\\//g')
-	echo "dirParsed: $dirParsed">&2
-	find $directory -type f | LC_COLLATE=C sort | sed -E "s/^$dirParsed(\/)*//g"
+	find $directory -type f | LC_COLLATE=C sort | sed -E "s:^$directory(/)*::g"
 	echo
 	files=$(find $directory -type f | LC_COLLATE=C sort)
 	n=0
@@ -165,7 +163,54 @@ build(){
 }
 
 gen-proof(){
-	echo gen-proof
+	n=0
+	# read until a blank line
+	while IFS= read -r line; do
+		if [[ $line ]]; then
+			n=$(($n+1))
+			if [[ "$line" =~ "$path_to_leaf_file" ]]; then
+				echo "$path_to_leaf_file found in line $n">&2
+				leaf_index=$n
+				found="true"
+			fi
+		else
+			break
+		fi
+	done
+	if [[ ! $found ]]; then
+		echo "ERROR: file not found in tree">&2
+		echo "ERROR: file not found in tree"
+		exit 1
+	fi
+	echo "leaf_index:$leaf_index,tree_size:$n"
+	echo "n = $n">&2
+	array=()
+	while IFS= read -r line; do
+		array+=("$line")
+	done
+	# for i in ${array[@]}; do
+	# 	echo $i | awk -F ':' "{print \$1}">&2
+	# done
+	i=0
+	while [ $n -ne 1 ]; do
+		# echo "leaf index = $leaf_index">&2
+		if [ $(($leaf_index%2)) -eq 0 ]; then
+			pos=$(($leaf_index-1))
+			echo ${array[$i]} | awk -F ":" "{print \$$pos}"
+		else
+			if [ $leaf_index -ne $n ]; then
+				pos=$(($leaf_index+1))
+				echo ${array[$i]} | awk -F ":" "{print \$$pos}"
+			fi
+		fi
+		if [ $(($n%2)) -eq 1 ]; then
+			index=$(($i+1))
+			array[$index]+=":"$(echo ${array[$i]} | awk -F ":" "{print \$$n}")
+		fi
+		n=$(($(($n+1))/2))
+		leaf_index=$(($(($leaf_index+1))/2))
+		i=$(($i+1))
+	done
 }
 
 verify-proof(){
@@ -178,9 +223,9 @@ validate_execute_subcommand(){
 			merkle_tree_file="$output"
 			directory="$argument"
 			if [[ $output && ! $tree && ! $proof && ! $root ]]; then
-				echo "output: $output, argument: $argument">&2
-				if [ -e $merkle-tree-file ] && ! [ -f $merkle-tree-file ]; then
-					# $merkle-tree-file exists and is not a regular file
+				echo "merkle-tree-file: $merkle_tree_file, directory: $directory">&2
+				if [ -e $merkle_tree_file ] && ! [ -f $merkle_tree_file ]; then
+					# $merkle_tree_file exists and is not a regular file
 					usage 1
 				fi
 				if ! [ -d $directory ]; then
@@ -191,26 +236,29 @@ validate_execute_subcommand(){
 				# --output not set or --tree set or --proof set or --root set
 				usage 1
 			fi
-			echo "found build!">&2
+			echo "Executing build...">&2
 			build > $merkle_tree_file
 			;;
 		"gen-proof")
+			proof_file="$output"
+			merkle_tree_file="$tree"
+			path_to_leaf_file="$argument"
 			if [[ $output && $tree && ! $proof && ! $root ]]; then
-				echo "output: $output, tree: $tree">&2
-				if [ -e $output ] && ! [ -f $output ]; then
-					# $output exists and is not a regular file
+				echo "proof-file: $proof_file, merkle-tree-file: $merkle_tree_file">&2
+				if [ -e $proof_file ] && ! [ -f $proof_file ]; then
+					# $proof_file exists and is not a regular file
 					usage 1
 				fi
-				if ! [ -e $tree ] || ! [ -f $tree ]; then
-					# $tree doesn't exist or is not a regular file
+				if ! [ -e $merkle_tree_file ] || ! [ -f $merkle_tree_file ]; then
+					# $merkle_tree_file doesn't exist or is not a regular file
 					usage 1
 				fi
 			else
 				# --output not set or --tree not set or --proof set or --root set
 				usage 1
 			fi
-			echo "found gen-proof!">&2
-			gen-proof
+			echo "Executing gen-proof...">&2
+			gen-proof < $merkle_tree_file > $proof_file
 			;;
 		"verify-proof")
 			if [[ ! $output && ! $tree && $proof && $root ]]; then
