@@ -229,7 +229,7 @@ gen-proof1(){
 		fi
 	done
 	if [[ ! $found ]]; then
-		echo "ERROR: file not found in tree">&2
+		# echo "ERROR: file not found in tree">&2
 		echo "ERROR: file not found in tree"
 		exit 1
 	fi
@@ -237,7 +237,36 @@ gen-proof1(){
 }
 
 verify-proof(){
-	echo verify-proof
+	IFS= read -r line
+	regex='leaf_index:(.*),tree_size:(.*)'
+	[[ $line =~ $regex ]]
+	k=${BASH_REMATCH[1]}; n=${BASH_REMATCH[2]}
+	k=$(($k-1)); n=$(($n-1))
+	# echo $k, $n
+	hash=$(sha256sum $path_to_leaf_file | awk '{print $1}')
+	while IFS= read -r line; do
+		line=$(echo $line | sed -e 's/A/a/g' -e 's/B/b/g' -e 's/C/c/g' -e 's/D/d/g' -e 's/E/e/g' -e 's/F/f/g')
+		if [ $n -eq 0 ]; then
+			echo "Verification Failed"
+			exit 1
+		fi
+		if [ $(($k%2)) -eq 1 ] || [ $k -eq $n ]; then
+			hash=$(echo -n "$line$hash" | xxd -r -p | sha256sum | awk '{print $1}')
+			while [ $(($k%2)) -eq 0 ]; do
+				k=$(($k/2)); n=$(($n/2))
+			done
+		else
+			hash=$(echo -n "$hash$line" | xxd -r -p | sha256sum | awk '{print $1}')
+		fi
+		k=$(($k/2)); n=$(($n/2))
+	done
+	if [ $n -eq 0 ] && [[ "$hash" == "$root_hash" ]]; then
+		echo "OK"
+		exit 0
+	else
+		echo "Verification Failed"
+		exit 1
+	fi
 }
 
 validate_execute_subcommand(){
@@ -273,15 +302,15 @@ validate_execute_subcommand(){
 			if [[ $output && $tree && ! $proof && ! $root ]]; then
 				# echo "proof-file: $proof_file, merkle-tree-file: $merkle_tree_file">&2
 				if [ -h $proof_file ]; then
-					# $proof_file is a symbolic link
+					# echo "$proof_file is a symbolic link">&2
 					usage 1
 				fi
 				if [ -e $proof_file ] && ! [ -f $proof_file ]; then
-					# $proof_file exists and is not a regular file
+					# echo "$proof_file exists and is not a regular file">&2
 					usage 1
 				fi
 				if [ -h $merkle_tree_file ] || ! [ -e $merkle_tree_file ] || ! [ -f $merkle_tree_file ]; then
-					# $merkle_tree_file is a symbolic link or doesn't exist or is not a regular file
+					# echo "$merkle_tree_file is a symbolic link or doesn't exist or is not a regular file">&2
 					usage 1
 				fi
 			else
@@ -292,26 +321,32 @@ validate_execute_subcommand(){
 			gen-proof1 < $merkle_tree_file
 			;;
 		"verify-proof")
+			path_to_leaf_file="$argument"
+			proof_file="$proof"
+			root_hash="$root"
 			if [[ ! $output && ! $tree && $proof && $root ]]; then
-				# echo "proof: $proof, root: $root">&2
-				if [ -h $proof ] || ! [ -e $proof ] || ! [ -f $proof ]; then
-					# $proof is a symbolic link or doesn't exist or is not a regular file
+				# echo "proof_file: $proof_file, root_hash: $root_hash">&2
+				if [ -h $proof_file ] || ! [ -e $proof_file ] || ! [ -f $proof_file ]; then
+					# echo "$proof_file is a symbolic link or doesn't exist or is not a regular file">&2
 					usage 1
 				fi
-				if [[ ! ($root =~ '^[0-9A-F]+$' || $root =~ '^[0-9a-f]+$') ]]; then
-					# $root doesn't follow hash regex
+				regexA='^[A-F0-9]+$'
+				regexa='^[a-f0-9]+$'
+				if [[ (! $root_hash =~ $regexA) && (! $root_hash =~ $regexa) ]]; then
+					# echo "$root_hash doesn't follow hash regex">&2
 					usage 1
 				fi
-				if [ -h $argument ] || ! [ -f $argument ]; then
-					# $argument is a symbolic link is not an existing regular file
+				if [ -h $path_to_leaf_file ] || ! [ -f $path_to_leaf_file ]; then
+					# echo "$path_to_leaf_file is a symbolic link is not an existing regular file">&2
 					usage 1
 				fi
 			else
 				# --output set or --tree set or --proof not set or --root not set
 				usage 1
 			fi
-			# echo "found verify-proof!">&2
-			verify-proof
+			# echo "Executing verify-proof...">&2
+			root_hash=$(echo $root_hash | sed -e 's/A/a/g' -e 's/B/b/g' -e 's/C/c/g' -e 's/D/d/g' -e 's/E/e/g' -e 's/F/f/g')
+			verify-proof < $proof_file
 			;;
 		*)
 			# echo "Unknown Command">&2
