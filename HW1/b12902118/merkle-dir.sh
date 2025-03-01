@@ -4,25 +4,25 @@ usage() {
 	local exit_status=$1
     cat <<EOF
 merkle-dir.sh - A tool for working with Merkle trees of directories.
- 
+
 Usage:
   merkle-dir.sh <subcommand> [options] [<argument>]
   merkle-dir.sh build <directory> --output <merkle-tree-file>
   merkle-dir.sh gen-proof <path-to-leaf-file> --tree <merkle-tree-file> --output <proof-file>
   merkle-dir.sh verify-proof <path-to-leaf-file> --proof <proof-file> --root <root-hash>
- 
+
 Subcommands:
   build          Construct a Merkle tree from a directory (requires --output).
   gen-proof      Generate a proof for a specific file in the Merkle tree (requires --tree and --output).
   verify-proof   Verify a proof against a Merkle root (requires --proof and --root).
- 
+
 Options:
   -h, --help     Show this help message and exit.
   --output FILE  Specify an output file (required for build and gen-proof).
   --tree FILE    Specify the Merkle tree file (required for gen-proof).
   --proof FILE   Specify the proof file (required for verify-proof).
   --root HASH    Specify the expected Merkle root hash (required for verify-proof).
- 
+
 Examples:
   merkle-dir.sh build dir1 --output dir1.mktree
   merkle-dir.sh gen-proof file1.txt --tree dir1.mktree --output file1.proof
@@ -38,8 +38,14 @@ PARSED="$(getopt -l "$LONGOPTIONS" -o "$OPTIONS" -- "$@" 2>/dev/null)"
 if [[ $? -ne 0 ]]; then
 	usage 1
 fi
+# Check for incorrect usage of long options in the form --option=value
+for arg in "$@"; do
+	if [[ "$arg" =~ ^--(output|tree|proof|root)= ]]; then
+    	usage 1
+	fi
+done
 eval set -- "$PARSED"
-echo "Parsed arguments: $@">&2
+# echo "Parsed arguments: $@">&2
 total_arguments=$(($#-1))
 while true; do
 	case "$1" in
@@ -162,28 +168,22 @@ build(){
 	done
 }
 
-gen-proof(){
+gen-proof2(){
 	n=0
 	# read until a blank line
 	while IFS= read -r line; do
 		if [[ $line ]]; then
 			n=$(($n+1))
 			if [[ "$line" =~ "$path_to_leaf_file" ]]; then
-				echo "$path_to_leaf_file found in line $n">&2
+				# echo "$path_to_leaf_file found in line $n">&2
 				leaf_index=$n
-				found="true"
 			fi
 		else
 			break
 		fi
 	done
-	if [[ ! $found ]]; then
-		echo "ERROR: file not found in tree">&2
-		echo "ERROR: file not found in tree"
-		exit 1
-	fi
 	echo "leaf_index:$leaf_index,tree_size:$n"
-	echo "n = $n">&2
+	# echo "n = $n">&2
 	array=()
 	while IFS= read -r line; do
 		array+=("$line")
@@ -213,6 +213,29 @@ gen-proof(){
 	done
 }
 
+gen-proof1(){
+	n=0
+	# read until a blank line
+	while IFS= read -r line; do
+		if [[ $line ]]; then
+			n=$(($n+1))
+			if [[ "$line" =~ "$path_to_leaf_file" ]]; then
+				# echo "$path_to_leaf_file found in line $n">&2
+				leaf_index=$n
+				found="true"
+			fi
+		else
+			break
+		fi
+	done
+	if [[ ! $found ]]; then
+		echo "ERROR: file not found in tree">&2
+		echo "ERROR: file not found in tree"
+		exit 1
+	fi
+	gen-proof2 < $merkle_tree_file > $proof_file
+}
+
 verify-proof(){
 	echo verify-proof
 }
@@ -223,20 +246,24 @@ validate_execute_subcommand(){
 			merkle_tree_file="$output"
 			directory="$argument"
 			if [[ $output && ! $tree && ! $proof && ! $root ]]; then
-				echo "merkle-tree-file: $merkle_tree_file, directory: $directory">&2
-				if [ -e $merkle_tree_file ] && ! [ -f $merkle_tree_file ]; then
-					# $merkle_tree_file exists and is not a regular file
+				# echo "merkle-tree-file: $merkle_tree_file, directory: $directory">&2
+				if [ -h $merkle_tree_file ]; then
+					# echo "$merkle_tree_file is a symbolic link ">&2
 					usage 1
 				fi
-				if ! [ -d $directory ]; then
-					# $directory is not an existing directory file
+				if [ -e $merkle_tree_file ] && ! [ -f $merkle_tree_file ]; then
+					# echo "$merkle_tree_file exists and is not a regular file">&2
+					usage 1
+				fi
+				if [ -h $directory ] || ! [ -d $directory ]; then
+					# echo "$directory is a symbolic link or is not an existing directory file">&2
 					usage 1
 				fi
 			else
 				# --output not set or --tree set or --proof set or --root set
 				usage 1
 			fi
-			echo "Executing build...">&2
+			# echo "Executing build...">&2
 			build > $merkle_tree_file
 			;;
 		"gen-proof")
@@ -244,46 +271,50 @@ validate_execute_subcommand(){
 			merkle_tree_file="$tree"
 			path_to_leaf_file="$argument"
 			if [[ $output && $tree && ! $proof && ! $root ]]; then
-				echo "proof-file: $proof_file, merkle-tree-file: $merkle_tree_file">&2
+				# echo "proof-file: $proof_file, merkle-tree-file: $merkle_tree_file">&2
+				if [ -h $proof_file ]; then
+					# $proof_file is a symbolic link
+					usage 1
+				fi
 				if [ -e $proof_file ] && ! [ -f $proof_file ]; then
 					# $proof_file exists and is not a regular file
 					usage 1
 				fi
-				if ! [ -e $merkle_tree_file ] || ! [ -f $merkle_tree_file ]; then
-					# $merkle_tree_file doesn't exist or is not a regular file
+				if [ -h $merkle_tree_file ] || ! [ -e $merkle_tree_file ] || ! [ -f $merkle_tree_file ]; then
+					# $merkle_tree_file is a symbolic link or doesn't exist or is not a regular file
 					usage 1
 				fi
 			else
 				# --output not set or --tree not set or --proof set or --root set
 				usage 1
 			fi
-			echo "Executing gen-proof...">&2
-			gen-proof < $merkle_tree_file > $proof_file
+			# echo "Executing gen-proof...">&2
+			gen-proof1 < $merkle_tree_file
 			;;
 		"verify-proof")
 			if [[ ! $output && ! $tree && $proof && $root ]]; then
-				echo "proof: $proof, root: $root">&2
-				if ! [ -e $proof ] || ! [ -f $proof ]; then
-					# $proof doesn't exist or is not a regular file
+				# echo "proof: $proof, root: $root">&2
+				if [ -h $proof ] || ! [ -e $proof ] || ! [ -f $proof ]; then
+					# $proof is a symbolic link or doesn't exist or is not a regular file
 					usage 1
 				fi
 				if [[ ! ($root =~ '^[0-9A-F]+$' || $root =~ '^[0-9a-f]+$') ]]; then
 					# $root doesn't follow hash regex
 					usage 1
 				fi
-				if ! [ -f $argument ]; then
-					# $argument is not an existing regular file
+				if [ -h $argument ] || ! [ -f $argument ]; then
+					# $argument is a symbolic link is not an existing regular file
 					usage 1
 				fi
 			else
 				# --output set or --tree set or --proof not set or --root not set
 				usage 1
 			fi
-			echo "found verify-proof!">&2
+			# echo "found verify-proof!">&2
 			verify-proof
 			;;
 		*)
-			echo "Unknown Command">&2
+			# echo "Unknown Command">&2
 			usage 1
 			;;
 	esac
@@ -305,7 +336,7 @@ case $# in
 			usage 1 # illegal
 		fi
 		subcommand=$1; argument=$2
-		echo "subcommand: "$subcommand", argument: "$argument>&2
+		# echo "subcommand: "$subcommand", argument: "$argument>&2
 		validate_execute_subcommand
 		;;
 	*)
