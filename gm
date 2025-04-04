@@ -1,0 +1,152 @@
+#!/bin/bash
+usage() {
+	echo "Usage: $0 [-f|--force] [-m|--max <max_level>] [-o|--output <output_file>] [-c|--course] <hw_number>"
+	echo "Options:"
+	echo "  -f, --force        Force overwrite the output file if it exists"
+	echo "  -m, --max         Set the maximum level (default: 6)"
+	echo "  -o, --output      Specify the output file name (default: b12902118.md)"
+	echo "  -c, --course      Specify the course name (default: NASA)"
+	echo "  <hw_number>       Specify the homework number (required)"
+	echo "example: ./gm 1"
+	echo "example: ./gm -f 1"
+	echo "(mac sucks and can only parse one option, so ignore the next example)"
+	echo "example: ./gm -f -m 5 -o ans.md -c NASA 1"
+	exit $1
+}
+
+COURSE_NAME="NASA"
+MAX_LEVEL=6
+OUTPUT_FILE="b12902118.md"
+OPTIONS="f,m,o,c"
+LONGOPTIONS="force,max,output,course"
+OS_TYPE=$(uname)
+if [[ "$OS_TYPE" == "Linux" ]]; then
+	PARSED="$(getopt -l "$LONGOPTIONS" -o "$OPTIONS" -- "$@" 2>/dev/null)"
+else
+	PARSED="$(getopt "$OPTIONS" "$@" 2>/dev/null)"
+fi
+# Prints the usage if errors happened during parsing options
+if [[ $? -ne 0 ]]; then
+	usage 1
+fi
+eval set -- "$PARSED"
+echo "Parsed options: $PARSED"
+while true; do
+	case "$1" in
+		-f|--force)
+			# If the -f or --force option is passed, remove the existing file
+			if [ -e $OUTPUT_FILE ]; then
+				rm $OUTPUT_FILE
+			fi
+			shift
+			;;
+		-m|--max)
+			# If the -m or --max option is passed, set the maximum level
+			MAX_LEVEL=$2
+			shift 2
+			;;
+		-o|--output)
+			# If the -o or --output option is passed, set the output file name
+			OUTPUT_FILE=$2
+			shift 2
+			;;
+		-c|--course)
+			# If the -c or --course option is passed, set the course name
+			COURSE_NAME=$2
+			shift 2
+			;;
+		--)
+			shift
+			break
+			;;
+	esac
+done
+if [[ $# -ne 1 ]]; then
+	usage 1
+fi
+if [ -e $OUTPUT_FILE ]; then
+	echo "$OUTPUT_FILE already exists. Please remove it first."
+	exit 1
+fi
+touch $OUTPUT_FILE
+if [ ! -e $OUTPUT_FILE ]; then
+	echo "Failed to create $OUTPUT_FILE."
+	exit 1
+fi
+cat <<EOF
+====================
+gm - Generate Homework Markdown file (for Nasa)
+Type 's' to start a new section
+Type 'd' to add a new subsection
+Type 'a' to end the current section
+Type 'q' to quit
+====================
+EOF
+echo "# $COURSE_NAME HW${1} - 金哲安(B12902118)" | tee -a $OUTPUT_FILE
+level=2
+array=($(for i in $(seq 0 $((MAX_LEVEL - 1))); do echo 0; done))
+firstline=1
+while true; do
+	read -n 1 -s line # Read a single character without requiring Enter
+	case $line in
+		"a")
+			if [[ $level -ne 2 ]]; then
+				# Decrease level by 1
+				array[$level]=0
+				level=$((level - 1))
+				if [[ $level -eq 2 ]]; then
+					echo -e "<div style="page-break-after: always"></div>\n" >> $OUTPUT_FILE
+				fi
+				for i in $(seq 1 $level); do
+					echo -n "#" | tee -a $OUTPUT_FILE
+				done
+				array[$level]=$((array[$level] + 1))
+				echo " ${array[$level]}" | tee -a $OUTPUT_FILE
+				if [[ $level -eq 2 ]]; then
+					echo -e "### References \n" >> $OUTPUT_FILE
+				fi
+			else
+				echo "Already at the top level. Cannot go up."
+			fi
+			;;
+		"s")
+			if [[ $level -eq 2 ]] && [[ $firstline -ne 1 ]]; then
+				echo -e "<div style="page-break-after: always"></div>\n" >> $OUTPUT_FILE
+			fi
+			firstline=0
+			echo >> $OUTPUT_FILE
+			for i in $(seq 1 $level); do
+				echo -n "#" | tee -a $OUTPUT_FILE
+			done
+			array[$level]=$((array[$level] + 1))
+			echo " ${array[$level]}" | tee -a $OUTPUT_FILE
+			if [[ $level -eq 2 ]]; then
+				echo -e "### References \n" >> $OUTPUT_FILE
+			fi
+			;;
+		"d")
+			if [[ $level -eq $MAX_LEVEL ]]; then
+				echo "Already at the maximum level. Cannot go down."
+				continue
+			fi
+			if [[ $level -eq 2 ]] && [[ ${array[$level]} -eq 0 ]]; then
+				echo "No section to add a subsection to. Please start a new section first."
+				continue
+			fi
+			echo >> $OUTPUT_FILE
+			level=$((level + 1))
+			for i in $(seq 1 $level); do
+				echo -n "#" | tee -a $OUTPUT_FILE
+			done
+			array[$level]=1
+			echo " ${array[$level]}" | tee -a $OUTPUT_FILE
+			;;
+		"q")
+			echo "Results saved to $OUTPUT_FILE"
+			break
+			;;
+		*)
+			echo "Invalid input. Please enter 'a'(left), 's'(down), 'd'(right), or 'q'(quit)."
+			;;
+	esac
+done
