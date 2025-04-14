@@ -103,7 +103,9 @@ while true; do
 				array[$level]=$((array[$level] + 1))
 				echo " ${array[$level]}" | tee -a $OUTPUT_FILE
 				if [[ $level -eq 2 ]]; then
-					echo -e "### References \n" >> $OUTPUT_FILE
+					echo -e "### References" >> $OUTPUT_FILE
+					echo -e "- B12902116 (林靖昀)" >> $OUTPUT_FILE
+					echo -e "- B12902066 (宋和峻)" >> $OUTPUT_FILE
 				fi
 			else
 				echo "Already at the top level. Cannot go up."
@@ -121,7 +123,9 @@ while true; do
 			array[$level]=$((array[$level] + 1))
 			echo " ${array[$level]}" | tee -a $OUTPUT_FILE
 			if [[ $level -eq 2 ]]; then
-				echo -e "### References \n" >> $OUTPUT_FILE
+				echo -e "### References" >> $OUTPUT_FILE
+				echo -e "- B12902116 (林靖昀)" >> $OUTPUT_FILE
+				echo -e "- B12902066 (宋和峻)" >> $OUTPUT_FILE
 			fi
 			;;
 		"d")
