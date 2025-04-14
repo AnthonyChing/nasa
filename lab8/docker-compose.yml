@@ -1,0 +1,36 @@
+services:
+  mariadb:
+    image: mariadb
+    container_name: dj-mariadb
+    environment:
+      MYSQL_ROOT_PASSWORD: root
+      MYSQL_USER: user
+      MYSQL_PASSWORD: user
+      MYSQL_DATABASE: domjudge
+    ports:
+      - "13306:3306"
+    networks:
+      - domjudge-net
+    command: --max-connections=1000
+    platform: linux/amd64
+
+  domserver:
+    image: domjudge/domserver:latest
+    container_name: domserver
+    depends_on:
+      - mariadb
+    environment:
+      MYSQL_HOST: dj-mariadb
+      MYSQL_USER: user
+      MYSQL_DATABASE: domjudge
+      MYSQL_PASSWORD: user
+      MYSQL_ROOT_PASSWORD: root
+    ports:
+      - "12345:80"
+    networks:
+      - domjudge-net
+    platform: linux/amd64
+
+networks:
+  domjudge-net:
+    driver: bridge
