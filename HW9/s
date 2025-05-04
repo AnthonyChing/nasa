@@ -1,0 +1,4 @@
+#!/bin/bash
+cp nasahw9-hpc1.qcow2 ./backup
+cp nasahw9-hpc2.qcow2 ./backup
+cp nasahw9-nfs-server.qcow2 ./backup
