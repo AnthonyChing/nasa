@@ -274,15 +274,25 @@ Yes.
 5. Execute `cfdisk` and partition the disks
 6. Execute `mkfs.ext4 /dev/sda1`, `mkfs.ext4 /dev/sda2`, `mkswap /dev/sda3`, `mkfs.fat -F 32 /dev/sda4` to format the disk partitions
 7. Mount `/dev/sda1` to `/mnt`
-8. Create `/mnt/home` and `/mnt/boot` directories and mount `/dev/sda2` to `/mnt/home`, `/dev/sda4` to `/mnt/boot`
+8. Create `/mnt/home` and `/mnt/boot/efi` directories and mount `/dev/sda2` to `/mnt/home`, `/dev/sda4` to `/mnt/boot/efi`
 9. Execute `swapon /dev/sda3`
 10. Execute `pacstrap -K /mnt base linux linux-firmware`
+	- `-K` initializes an empty pacman keyring
+	- `pacstrap /mnt base linux linux-firmware`
 11. Execute `genfstab -U /mnt >> /mnt/etc/fstab`
 12. Execute `arch-chroot /mnt`
 13. Execute `echo "b12902118" > /etc/hostname`
 14. Execute `passwd` and set the root password
 15. Execute `pacman -S grub efibootmgr`
-16. Execute `grub-install --target=x86_64-efi --efi-directory=/boot --bootloader-id=GRUB`
+16. Execute `grub-install --target=x86_64-efi --efi-directory=/boot/efi --bootloader-id=GRUB`
+	- If keyring fails here, then
+	```
+	rm -R /etc/pacman.d/gnupg
+	pacman-key --init
+	pacman-key --populate archlinux
+	pacman -Sy archlinux-keyring
+	```
+	before the previous step
 17. Execute `grub-mkconfig -o /boot/grub/grub.cfg`
 18. Execute `exit`
 19. Execute `reboot`
