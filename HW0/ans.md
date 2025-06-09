@@ -293,6 +293,14 @@ Yes.
 	pacman -Sy archlinux-keyring
 	```
 	before the previous step
+	- For GRUB to automatically detect Windows:
+	```
+	pacman -S os-prober ntfs-3g
+	```
+	Then edit /etc/default/grub and make sure:
+	```
+	GRUB_DISABLE_OS_PROBER=false
+	```
 17. Execute `grub-mkconfig -o /boot/grub/grub.cfg`
 18. Execute `exit`
 19. Execute `reboot`
